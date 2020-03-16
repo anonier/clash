@@ -26,6 +26,10 @@ func withFakeIP(fakePool *fakeip.Pool) middleware {
 			}
 
 			host := strings.TrimRight(q.Name, ".")
+			if fakePool.LookupHost(host) {
+				next(w, r)
+				return
+			}
 
 			rr := &D.A{}
 			rr.Hdr = D.RR_Header{Name: q.Name, Rrtype: D.TypeA, Class: D.ClassINET, Ttl: dnsDefaultTTL}
@@ -35,7 +39,8 @@ func withFakeIP(fakePool *fakeip.Pool) middleware {
 			msg.Answer = []D.RR{rr}
 
 			setMsgTTL(msg, 1)
-			msg.SetReply(r)
+			msg.SetRcode(r, msg.Rcode)
+			msg.Authoritative = true
 			w.WriteMsg(msg)
 			return
 		}
@@ -51,7 +56,8 @@ func withResolver(resolver *Resolver) handler {
 			D.HandleFailed(w, r)
 			return
 		}
-		msg.SetReply(r)
+		msg.SetRcode(r, msg.Rcode)
+		msg.Authoritative = true
 		w.WriteMsg(msg)
 		return
 	}
@@ -71,7 +77,7 @@ func compose(middlewares []middleware, endpoint handler) handler {
 func newHandler(resolver *Resolver) handler {
 	middlewares := []middleware{}
 
-	if resolver.IsFakeIP() {
+	if resolver.FakeIPEnabled() {
 		middlewares = append(middlewares, withFakeIP(resolver.pool))
 	}
 

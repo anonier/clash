@@ -57,16 +57,18 @@ func Start(addr string, secret string) {
 	})
 
 	r.Use(cors.Handler)
-	r.Get("/", hello)
 	r.Group(func(r chi.Router) {
 		r.Use(authentication)
 
+		r.Get("/", hello)
 		r.Get("/logs", getLogs)
 		r.Get("/traffic", traffic)
 		r.Get("/version", version)
 		r.Mount("/configs", configRouter())
 		r.Mount("/proxies", proxyRouter())
 		r.Mount("/rules", ruleRouter())
+		r.Mount("/connections", connectionRouter())
+		r.Mount("/providers/proxies", proxyProviderRouter())
 	})
 
 	if uiPath != "" {
@@ -140,7 +142,7 @@ func traffic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tick := time.NewTicker(time.Second)
-	t := T.Instance().Traffic()
+	t := T.DefaultManager
 	buf := &bytes.Buffer{}
 	var err error
 	for range tick.C {
